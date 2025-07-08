@@ -1,0 +1,168 @@
+﻿@page "/grid-editing"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <MudText Typo="Typo.h4" Class="mb-4">Grid Editing với OnCellChange</MudText>
+
+    <MudButton Variant="Variant.Filled"
+               Color="Color.Primary"
+               OnClick="AddNewRow"
+               Class="mb-3">
+        Thêm dòng mới
+    </MudButton>
+
+    <MudDataGrid T="EmployeeModel"
+                 Items="@employees"
+                 Filterable="true"
+                 ReadOnly="false"
+                 EditMode="@DataGridEditMode.Cell"
+                 CommittedItemChanges="@ItemHasBeenCommitted"
+                 StartedEditingItem="@OnStartedEditingItem"
+                 Bordered="true"
+                 Dense="true">
+
+        <Columns>
+            <PropertyColumn Property="x => x.Id" Title="ID" IsEditable="false" />
+
+            <!-- ✅ NAME với OnCellChange -->
+            <PropertyColumn Property="x => x.Name" Title="Họ tên">
+                <EditTemplate>
+                    <MudTextField Value="@context.Item.Name"
+                                  ValueChanged="@((string newValue) => OnCellChange(context.Item, newValue, "Name"))"
+                                  Variant="Variant.Text"
+                                  Required="true" />
+                </EditTemplate>
+            </PropertyColumn>
+
+            <!-- ✅ AGE với OnCellChange -->
+            <PropertyColumn Property="x => x.Age" Title="Tuổi">
+                <EditTemplate>
+                    <MudNumericField Value="@context.Item.Age"
+                                     ValueChanged="@((int newValue) => OnCellChange(context.Item, newValue, "Age"))"
+                                     Variant="Variant.Text"
+                                     Min="18"
+                                     Max="100" />
+                </EditTemplate>
+            </PropertyColumn>
+
+            <!-- ✅ SALARY với OnCellChange -->
+            <PropertyColumn Property="x => x.Salary" Title="Lương" Format="C2">
+                <EditTemplate>
+                    <MudNumericField Value="@context.Item.Salary"
+                                     ValueChanged="@((decimal newValue) => OnCellChange(context.Item, newValue, "Salary"))"
+                                     Variant="Variant.Text"
+                                     Format="N2"
+                                     Culture="@System.Globalization.CultureInfo.InvariantCulture" />
+                </EditTemplate>
+            </PropertyColumn>
+
+            <!-- ✅ HIREDATE với OnCellChange - FIXED -->
+            <PropertyColumn Property="x => x.HireDate" Title="Ngày tuyển dụng" IsEditable="true">
+                <EditTemplate>
+                    <MudDatePicker Date="@context.Item.HireDate"
+                                   DateChanged="@((DateTime? newDate) => OnCellChange(context.Item, newDate, "HireDate"))"
+                                   Variant="Variant.Text"
+                                   DateFormat="dd/MM/yyyy"
+                                   Culture="@System.Globalization.CultureInfo.GetCultureInfo("vi-VN")"
+                                   Placeholder="Chọn ngày..." />
+                </EditTemplate>
+            </PropertyColumn>
+
+            <!-- ✅ DEPARTMENT với OnCellChange - FIXED -->
+            <PropertyColumn Property="x => x.Department" Title="Phòng ban" IsEditable="true">
+                <EditTemplate>
+                    <MudSelect T="string"
+                               Value="@context.Item.Department"
+                               ValueChanged="@((string newValue) => OnCellChange(context.Item, newValue, "Department"))"
+                               Variant="Variant.Text"
+                               AnchorOrigin="Origin.BottomCenter"
+                               TransformOrigin="Origin.TopCenter"
+                               Required="true"
+                               AutoFocus="true"
+                               Immediate="true"
+                               MaxHeight="300"
+                               Margin="@Margin.Dense"
+                               Placeholder="Chọn phòng ban...">
+                        @foreach (var dept in departments)
+                        {
+                            <MudSelectItem T="string" Value="@dept">@dept</MudSelectItem>
+                        }
+                    </MudSelect>
+                </EditTemplate>
+            </PropertyColumn>
+
+            <!-- ✅ SKILLS với OnCellChange - FIXED -->
+            <PropertyColumn Property="x => x.Skills" Title="Kỹ năng" IsEditable="true">
+                <CellTemplate>
+                    @if (context.Item.Skills != null && context.Item.Skills.Any())
+                    {
+                        @string.Join(", ", context.Item.Skills)
+                    }
+                    else
+                    {
+                        <span class="text-muted">Chưa có kỹ năng</span>
+                    }
+                </CellTemplate>
+                <EditTemplate>
+                    <MudSelect T="string"
+                               MultiSelection="true"
+                               SelectedValues="@(context.Item.Skills ?? new List<string>())"
+                               SelectedValuesChanged="@((IEnumerable<string> newValues) => OnCellChange(context.Item, newValues?.ToList() ?? new List<string>(), "Skills"))"
+                               Variant="Variant.Text"
+                               AnchorOrigin="Origin.BottomCenter"
+                               TransformOrigin="Origin.TopCenter"
+                               AutoFocus="true"
+                               Immediate="true"
+                               MaxHeight="300"
+                               Margin="@Margin.Dense"
+                               Placeholder="Chọn kỹ năng...">
+                        @foreach (var skill in availableSkills)
+                        {
+                            <MudSelectItem T="string" Value="@skill">@skill</MudSelectItem>
+                        }
+                    </MudSelect>
+                </EditTemplate>
+            </PropertyColumn>
+
+            <TemplateColumn CellClass="d-flex justify-end">
+                <CellTemplate>
+                    <MudIconButton Size="@Size.Small"
+                                   Icon="@Icons.Material.Outlined.Delete"
+                                   Color="Color.Error"
+                                   OnClick="@(() => DeleteRow(context.Item))" />
+                </CellTemplate>
+            </TemplateColumn>
+        </Columns>
+    </MudDataGrid>
+
+    <MudText Typo="Typo.body2" Class="mt-4">
+        Tổng số nhân viên: @employees.Count
+    </MudText>
+
+    <!-- DEBUG PANEL -->
+    <MudExpansionPanels Style="margin-top: 20px;">
+        <MudExpansionPanel Text="Show OnCellChange Logs">
+            @if (changeLogs.Any())
+            {
+                @foreach (var log in changeLogs.TakeLast(10))
+                {
+                    <MudText Typo="@Typo.body2">@log</MudText>
+                }
+                <MudButton Class="mt-3"
+                           ButtonType="ButtonType.Button"
+                           Variant="Variant.Filled"
+                           OnClick="@(() => changeLogs.Clear())">
+                    Clear Logs
+                </MudButton>
+            }
+            else
+            {
+                <MudText Typo="@Typo.body2" Class="text-muted">Chưa có logs...</MudText>
+            }
+        </MudExpansionPanel>
+    </MudExpansionPanels>
+</MudContainer>
+
+
+<MudDatePicker Label="yyyy-MM-dd" Editable="true" Mask="@(new DateMask("0000-00-00"))" DateFormat="yyyy-MM-dd" Placeholder="ISO Date" Variant="Variant.Outlined" />
